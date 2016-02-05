@@ -1,0 +1,29 @@
+# This is an nginx template to base your configuration files.
+# You are allowed to add things on “your content” section.
+
+server {
+    listen                80 ;
+    server_name           <SERVER_NAME>;
+    include includes/lets-encrypt.conf;
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen                443 ;
+    server_name           <SERVER_NAME>;
+
+    ssl on;
+    include includes/ssl-settings.conf;
+    ssl_certificate /var/lib/acme/live/<SERVER_NAME>/fullchain;
+    ssl_certificate_key /var/lib/acme/live/<SERVER_NAME>/privkey;
+
+    # Your content. Eg:
+    #location / {
+    #    proxy_pass http://localhost:8080;
+    #    proxy_redirect off;
+    #}
+
+    include includes/lets-encrypt.conf;
+}

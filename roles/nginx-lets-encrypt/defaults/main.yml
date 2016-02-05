@@ -1,0 +1,2 @@
+nginx_sites:
+  - www.test.landoop.com

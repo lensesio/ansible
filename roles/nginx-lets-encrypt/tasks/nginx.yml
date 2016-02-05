@@ -1,0 +1,51 @@
+---
+# Set up nginx
+
+- name: Install nginx centos 7 repository
+  copy: src="nginx-centos7.repo" dest=/etc/yum.repos.d/nginx.repo mode="0640"
+        group=root owner=root force=yes
+
+- name: Install nginx and libsemanage-python
+  yum: name="{{ item }}" state=latest
+  with_items:
+    - nginx
+    - libsemanage-python
+
+- name: Set SELinux to permit nginx to connect to TCP ports
+  seboolean: name=httpd_can_network_connect state=yes persistent=yes
+
+# Here we store some files that we should include inside our site configurations.
+- name: Create nginx includes directory
+  file: path=/etc/nginx/includes state=directory group=root owner=root mode="0750"
+
+# This file has the code to handle requests from Let's Encrypt's validations.
+- name: Copy lets encrypt redirect include
+  copy: src="includes/lets-encrypt.conf" dest=/etc/nginx/includes/lets-encrypt.conf mode="0640"
+        group=root owner=root force=yes
+
+# This file has some sane SSL settings, as suggested by https://mozilla.github.io/server-side-tls/ssl-config-generator/
+- name: Copy ssl settings include
+  copy: src="includes/ssl-settings.conf" dest=/etc/nginx/includes/ssl-settings.conf mode="0640"
+        group=root owner=root force=yes
+
+- name: Copy configuration files
+  copy: src="conf.d/{{ item }}.conf" dest=/etc/nginx/conf.d/ mode="0640"
+        group=root owner=root force=yes
+  with_items: nginx_sites
+
+- name: Create dhparam file for more secure SSL
+  shell: openssl dhparam -out /etc/nginx/dhparam.pem 2048
+         creates=/etc/nginx/dhparam.pem
+
+- name: Secure dhparam file
+  file: path=/etc/nginx/dhparam.pem state=file group=root owner=root mode="0400"
+
+- name: Copy script to check for missing certificates
+  copy: src="certs-checks-gets.sh" dest=/root/certs-checks-gets.sh mode="0750"
+        group=root owner=root force=yes
+
+- name: Check and request missing certificates
+  shell: /root/certs-checks-gets.sh "{{ ansible_ssh_host }}"
+
+- name: Enable and start nginx service
+  service: name=nginx state=reloaded enabled=yes

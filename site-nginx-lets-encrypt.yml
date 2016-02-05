@@ -1,0 +1,5 @@
+- name: Nginx and Lets Encrypt
+  hosts: all
+  become: yes
+  roles:
+    - nginx-lets-encrypt

@@ -1,0 +1,11 @@
+---
+# Role to install nginx with automatic Let's Encrypt certificate issuance, renew and backups
+
+# Installs acmetool. If there is a backup it restores it. Else it configures it from scratch.
+- include: acmetool.yml
+
+# Installs nginx. Searches for any missing certificates and requests them.
+- include: nginx.yml
+
+# Backups acmetool data (configuration and certificates).
+- include: backup.yml

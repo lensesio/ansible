@@ -1,0 +1,11 @@
+# This role backups acmetool's keys and certificates.
+
+- name: Archive SSL configuration
+  shell: tar cjf /root/acme.tbz /var/lib/acme/
+
+- name: Fetch SSL configuration to repo for backup
+  fetch: src=/root/acme.tbz dest="roles/nginx-lets-encrypt/files/backups/{{ ansible_hostname }}/acme.tbz"
+         flat=yes fail_on_missing=yes
+
+- name: Remove SSL archive
+  file: path=/root/acme.tbz state=absent

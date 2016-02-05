@@ -1,0 +1,58 @@
+# This role install's acmetool and restores its keys and certificates.
+
+- name: install libcap-devel, bzip2 and gzip
+  yum: name="{{ item }}" state=latest
+  with_items:
+    - libcap-devel
+    - bzip2
+    - gzip
+
+- name: Download acmetool
+  get_url: url=https://github.com/hlandau/acme/releases/download/v0.0.45/acmetool-v0.0.45-linux_amd64.tar.gz
+           dest=/tmp/acmetool-v0.0.45-linux_amd64.tar.gz
+           owner=root group=root mode=0640
+
+- name: Install acmetool
+  shell: tar xf /tmp/acmetool-v0.0.45-linux_amd64.tar.gz -C /tmp/ &&
+         cp /tmp/acmetool-v0.0.45-linux_amd64/bin/acmetool /usr/local/bin/acmetool &&
+         cp /tmp/acmetool-v0.0.45-linux_amd64/doc/acmetool.8 /usr/local/share/man/man8/acmetool.8 &&
+         rm -rf /tmp/acmetool-v0.0.45-linux_amd64
+         creates=/usr/local/bin/acmetool
+
+- name: Ensure acmetool permissions
+  file: path=/usr/local/bin/acmetool owner=root group=root mode=0550
+
+- name: Copy acmetool response file
+  copy: src=acmetool/response-file.yml dest=/root/acmetool-response-file.yml
+        owner=root group=root mode=0644
+
+- name: Check for existing acmetool configuration
+  stat: path=/var/lib/acme
+  register: acmetool_configuration
+
+- name: Check for existing acmetool backup
+  local_action: stat path="roles/lets-encrypt/files/backups/{{ ansible_hostname }}/acme.tbz"
+  register: acmetool_backup
+  become: no
+
+- name: Initiliaze acmetool
+  shell: /usr/local/bin/acmetool quickstart --response-file /root/acmetool-response-file.yml
+         creates=/var/lib/acme
+  when: acmetool_configuration.stat.exists == false and acmetool_backup.stat.exists == false
+
+- name: Restore existing acmetool configuration
+  unarchive: src="backups/{{ ansible_hostname }}/acme.tbz" dest=/
+  when: acmetool_configuration.stat.exists == false and acmetool_backup.stat.exists == true
+
+- name: Copy acmetool response file to acme directory
+  copy: src=acmetool/response-file.yml dest=/var/lib/acme/conf/responses
+        owner=root group=root mode=0644
+
+- name: Install acmetool reconcile cron job
+  copy: src=acmetool/acmetool.cron dest=/etc/cron.d/acmetool
+        owner=root group=root mode=0644
+  tags: debug-le-cron
+
+- name: Reload cron to load new job
+  command: systemctl reload crond
+  tags: debug-le-cron
